@@ -1,0 +1,3 @@
+(test
+ (name test_web3_codec)
+ (libraries web3_codec alcotest))
