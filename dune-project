@@ -14,6 +14,8 @@
  (depends
   (ocaml (>= 4.14))
   (zarith (>= 1.12))
-  (digestif (>= 1.1.4))
+  (digestif (>= 1.2.0))
   (evm-abi (>= 0.1.0))
-  (alcotest :with-test)))
+  (alcotest :with-test)
+  (qcheck-core :with-test)
+  (qcheck-alcotest :with-test)))

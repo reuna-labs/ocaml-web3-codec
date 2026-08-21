@@ -1,16 +1,27 @@
 (* RLP (Recursive Length Prefix), Ethereum's structural serialization for
    transactions, receipts and trie nodes.
-   https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/ *)
+   https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
+
+   Decoding is strict about canonical form: a value has exactly one valid
+   encoding, so re-encoding whatever [decode] returns reproduces the input
+   bytes. That property is what makes an RLP hash meaningful, so every
+   non-canonical spelling is rejected rather than accepted leniently. *)
 
 type t =
   | Str of string
   | List of t list
 
+(* Ethereum's RLP never nests anywhere near this deep; the bound exists so
+   that adversarial input cannot drive unbounded recursion. *)
+let max_depth = 1024
+
 (* Minimal big-endian encoding of a non-negative integer; 0 -> "" (RLP
    encodes scalars without leading zero bytes, so zero is the empty
    string). *)
 let be_of_z z =
-  if Z.sign z <= 0 then ""
+  if Z.sign z < 0 then
+    invalid_arg "Rlp.of_z: RLP has no representation for negative integers";
+  if Z.sign z = 0 then ""
   else begin
     let n = (Z.numbits z + 7) / 8 in
     String.init n (fun i ->
@@ -53,20 +64,27 @@ exception Error of string
 let decode s =
   let n = String.length s in
   let need pos count =
-    if pos + count > n then raise (Error "rlp: truncated input")
+    if count < 0 || pos + count > n then raise (Error "rlp: truncated input")
   in
+  (* A length field is at most 8 bytes, which does not fit an OCaml int.
+     Accumulating unguarded lets 0x8000000000000064 wrap to 100, so that
+     "ff 80 00 00 00 00 00 00 64" and the canonical "f8 64" decode to the
+     same value -- a malleability break. Bailing as soon as the running
+     value passes the input length keeps the accumulator far below the
+     overflow point and rejects the long spelling outright. *)
   let read_len pos count =
     need pos count;
+    if count = 0 then raise (Error "rlp: empty length field");
+    if Char.code s.[pos] = 0 then raise (Error "rlp: leading zero in length");
     let v = ref 0 in
     for i = 0 to count - 1 do
-      v := (!v lsl 8) lor Char.code s.[pos + i]
+      v := (!v lsl 8) lor Char.code s.[pos + i];
+      if !v > n then raise (Error "rlp: length exceeds input")
     done;
-    (* A well-formed encoding never uses a long form for a length that
-       fits the short form, nor leading zero length bytes. *)
-    if count > 0 && Char.code s.[pos] = 0 then raise (Error "rlp: leading zero in length");
     !v
   in
-  let rec item pos =
+  let rec item pos depth =
+    if depth > max_depth then raise (Error "rlp: nesting too deep");
     need pos 1;
     let b = Char.code s.[pos] in
     if b < 0x80 then (Str (String.sub s pos 1), pos + 1)
@@ -87,22 +105,27 @@ let decode s =
     else if b < 0xf8 then begin
       let len = b - 0xc0 in
       need (pos + 1) len;
-      (List (items_in (pos + 1) (pos + 1 + len)), pos + 1 + len)
+      (List (items_in (pos + 1) (pos + 1 + len) depth), pos + 1 + len)
     end
     else begin
       let nl = b - 0xf7 in
       let len = read_len (pos + 1) nl in
       if len < 56 then raise (Error "rlp: long form used for a short list");
       need (pos + 1 + nl) len;
-      (List (items_in (pos + 1 + nl) (pos + 1 + nl + len)), pos + 1 + nl + len)
+      (List (items_in (pos + 1 + nl) (pos + 1 + nl + len) depth), pos + 1 + nl + len)
     end
-  and items_in pos stop =
-    if pos = stop then []
-    else if pos > stop then raise (Error "rlp: item overruns its list")
-    else
-      let it, pos' = item pos in
-      it :: items_in pos' stop
+  (* accumulate rather than recurse per item, so a long list costs heap
+     rather than stack *)
+  and items_in pos stop depth =
+    let rec go pos acc =
+      if pos = stop then List.rev acc
+      else if pos > stop then raise (Error "rlp: item overruns its list")
+      else
+        let it, pos' = item pos (depth + 1) in
+        go pos' (it :: acc)
+    in
+    go pos []
   in
-  match item 0 with
+  match item 0 0 with
   | v, pos -> if pos = n then Ok v else Error "rlp: trailing bytes after value"
   | exception Error m -> Error m

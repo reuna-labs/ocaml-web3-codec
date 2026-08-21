@@ -245,7 +245,7 @@ let abi_ () =
 
 let () =
   Alcotest.run "web3_codec"
-    [
+    ([
       ("rlp", [ Alcotest.test_case "encode" `Quick rlp_encode;
                 Alcotest.test_case "decode" `Quick rlp_decode ]);
       ("scale", [ Alcotest.test_case "compact" `Quick scale_compact;
@@ -256,3 +256,5 @@ let () =
       ("borsh", [ Alcotest.test_case "encode/decode" `Quick borsh_ ]);
       ("abi", [ Alcotest.test_case "encode/selector/decode" `Quick abi_ ]);
     ]
+    @ Regressions.suite
+    @ Properties.suite)

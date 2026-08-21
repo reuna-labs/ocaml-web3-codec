@@ -1,3 +1,4 @@
 (test
  (name test_web3_codec)
- (libraries web3_codec alcotest))
+ (modules test_web3_codec regressions properties)
+ (libraries web3_codec alcotest qcheck-core qcheck-alcotest))

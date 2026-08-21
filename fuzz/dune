@@ -1,0 +1,4 @@
+(executable
+ (name fuzz)
+ (modules fuzz)
+ (libraries web3_codec zarith))
