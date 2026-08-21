@@ -178,7 +178,7 @@ let abi_ () =
   checkh "selector sam" "a5643bf2" (Abi.selector "sam(bytes,bool,uint256[])");
   (* baz(69, true) -- Solidity ABI spec worked example *)
   let baz =
-    Abi.encode_call ~signature:"baz(uint32,bool)" [ Abi.Uint (Z.of_int 69); Abi.Bool true ]
+    Abi.encode_call_exn ~signature:"baz(uint32,bool)" [ Abi.Uint (Z.of_int 69); Abi.Bool true ]
   in
   checkh "baz call data"
     ("cdcd77c0"
@@ -187,7 +187,7 @@ let abi_ () =
     baz;
   (* sam("dave", true, [1,2,3]) -- spec dynamic head/tail example *)
   let sam =
-    Abi.encode_call ~signature:"sam(bytes,bool,uint256[])"
+    Abi.encode_call_exn ~signature:"sam(bytes,bool,uint256[])"
       [ Abi.Bytes "dave"; Abi.Bool true;
         Abi.Array [ Abi.Uint Z.one; Abi.Uint (Z.of_int 2); Abi.Uint (Z.of_int 3) ] ]
   in
@@ -205,7 +205,7 @@ let abi_ () =
     sam;
   (* f(0x123, [0x456,0x789], bytes10"1234567890", "Hello, world!") -- spec bytesN example *)
   let f =
-    Abi.encode
+    Abi.encode_exn
       [ Abi.Uint (Z.of_int 0x123);
         Abi.Array [ Abi.Uint (Z.of_int 0x456); Abi.Uint (Z.of_int 0x789) ];
         Abi.FixedBytes "1234567890"; Abi.Bytes "Hello, world!" ]
@@ -224,7 +224,7 @@ let abi_ () =
   (* decode round-trip: re-encoding the decoded params reproduces them *)
   let sam_params = String.sub sam 4 (String.length sam - 4) in
   let decoded = ok (Abi.decode [ Abi.TBytes; Abi.TBool; Abi.TArray (Abi.TUint 256) ] sam_params) in
-  checkh "sam decode round-trips" (hexenc sam_params) (Abi.encode decoded);
+  checkh "sam decode round-trips" (hexenc sam_params) (Abi.encode_exn decoded);
   (* confirm real decoding, not just re-encoding *)
   (match Abi.decode_call [ Abi.TUint 32; Abi.TBool ] baz with
   | Ok [ u; b ] ->
@@ -234,7 +234,7 @@ let abi_ () =
   (* transfer(address,uint256): address left-padding to a 32-byte word *)
   let addr = hexdec "5b38da6a701c568545dcfcb03fcb875f56beddc4" in
   let call =
-    Abi.encode_call ~signature:"transfer(address,uint256)"
+    Abi.encode_call_exn ~signature:"transfer(address,uint256)"
       [ Abi.Address addr; Abi.Uint (Z.of_int 1000000) ]
   in
   checkh "transfer call data"

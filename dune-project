@@ -15,4 +15,5 @@
   (ocaml (>= 4.14))
   (zarith (>= 1.12))
   (digestif (>= 1.1.4))
+  (evm-abi (>= 0.1.0))
   (alcotest :with-test)))
