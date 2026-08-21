@@ -1,3 +1,4 @@
 (library
  (name web3_codec)
+ (public_name web3-codec)
  (libraries zarith digestif))
