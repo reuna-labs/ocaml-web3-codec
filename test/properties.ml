@@ -246,6 +246,162 @@ let robustness =
         (fun s -> ignore (Abi.decode_call Abi.[ TAddress; TUint 256 ] s)) ]
 
 
+(* ---------------- multiformats ---------------- *)
+
+(* Varint minimality is the substrate property: every format below is
+   content-addressed, so a value with two spellings is a malleability
+   vector. *)
+let varint_roundtrip =
+  QCheck.Test.make ~count:5000 ~name:"varint: of_octets (write n) = n"
+    (QCheck.make ~print:string_of_int QCheck.Gen.(int_range 0 max_int))
+    (fun n -> Varint.of_octets (Varint.write n) = Ok n)
+
+let varint_nonmalleable =
+  QCheck.Test.make ~count:5000 ~name:"varint: decode s = Ok n => write n = s" arb_bytes
+    (fun s ->
+      match Varint.of_octets s with
+      | Ok n -> String.equal (Varint.write n) s
+      | Error _ -> true)
+
+let arb_base = QCheck.make ~print:Multibase.name (QCheck.Gen.oneof_list Multibase.all)
+
+let multibase_roundtrip =
+  QCheck.Test.make ~count:4000 ~name:"multibase: decode (encode b s) = (b, s)"
+    (QCheck.make
+       ~print:(fun (b, s) -> Multibase.name b ^ "/" ^ hexenc s)
+       QCheck.Gen.(pair (oneof_list Multibase.all) (bytes_upto 120)))
+    (fun (b, s) -> Multibase.decode (Multibase.encode b s) = Ok (b, s))
+
+(* Text CIDs are compared as strings, so one payload must have exactly one
+   spelling per base. *)
+let multibase_nonmalleable =
+  QCheck.Test.make ~count:5000 ~name:"multibase: decode s = Ok (b,v) => encode b v = s"
+    (QCheck.make ~print:(fun s -> s)
+       QCheck.Gen.(
+         string_size ~gen:(oneof_list (List.init 96 (fun i -> Char.chr (i + 31)))) (int_range 0 40)))
+    (fun s ->
+      match Multibase.decode s with
+      | Ok (b, v) -> String.equal (Multibase.encode b v) s
+      | Error _ -> true)
+
+let arb_multihash =
+  QCheck.make
+    ~print:Multihash.to_string
+    QCheck.Gen.(
+      pair (oneof_list [ 0x00; 0x11; 0x12; 0x13; 0x16; 0x1b; 0x1e; 0xb220; 0x9999 ]) (bytes_upto 64)
+      >|= fun (c, d) -> Multihash.make ~code:(Multicodec.of_code c) ~digest:d)
+
+let multihash_roundtrip =
+  QCheck.Test.make ~count:4000 ~name:"multihash: of_octets (to_octets h) = h" arb_multihash
+    (fun h ->
+      match Multihash.of_octets (Multihash.to_octets h) with
+      | Ok h' ->
+        Multihash.code h' = Multihash.code h
+        && String.equal (Multihash.digest_bytes h') (Multihash.digest_bytes h)
+      | Error _ -> false)
+
+let multihash_nonmalleable =
+  QCheck.Test.make ~count:5000 ~name:"multihash: decode s = Ok h => encode h = s" arb_bytes
+    (fun s ->
+      match Multihash.of_octets s with
+      | Ok h -> String.equal (Multihash.to_octets h) s
+      | Error _ -> true)
+
+let arb_cid =
+  QCheck.make ~print:Cid.to_string
+    QCheck.Gen.(
+      pair (oneof_list [ 0x55; 0x70; 0x71; 0x72; 0x0129 ]) (bytes_upto 200)
+      >|= fun (codec, payload) ->
+      let h = Result.get_ok (Multihash.digest (Multicodec.of_code 0x12) payload) in
+      Cid.v1 ~codec:(Multicodec.of_code codec) h)
+
+let cid_roundtrip =
+  QCheck.Test.make ~count:3000 ~name:"cid: of_octets (to_octets c) = c" arb_cid
+    (fun c -> match Cid.of_octets (Cid.to_octets c) with Ok c' -> Cid.equal c' c | Error _ -> false)
+
+(* A CID rendered in any base must read back as the same CID. *)
+let cid_base_agnostic =
+  QCheck.Test.make ~count:2000 ~name:"cid: every base names the same CID"
+    (QCheck.make
+       ~print:(fun (c, b) -> Cid.to_string ~base:b c)
+       QCheck.Gen.(pair (QCheck.gen arb_cid) (oneof_list Multibase.all)))
+    (fun (c, b) ->
+      match Cid.of_string (Cid.to_string ~base:b c) with
+      | Ok c' -> Cid.equal c' c
+      | Error _ -> false)
+
+let cid_nonmalleable =
+  QCheck.Test.make ~count:5000 ~name:"cid: decode s = Ok c => encode c = s" arb_bytes
+    (fun s ->
+      match Cid.of_octets s with
+      | Ok c -> String.equal (Cid.to_octets c) s
+      | Error _ -> true)
+
+let multiaddr_strings =
+  [ "/ip4/127.0.0.1/udp/1234"; "/ip4/1.2.3.4/tcp/80/http"; "/ip6/::1/tcp/8080";
+    "/dns4/example.com/tcp/443/tls/ws"; "/ip4/1.2.3.4/udp/4001/quic-v1";
+    "/unix/tmp/p2p.sock"; "/memory/4242"; "/ip6/2001:db8::1/tcp/443/wss";
+    "/ip4/127.0.0.1/tcp/1234/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC" ]
+
+let multiaddr_roundtrip =
+  QCheck.Test.make ~count:2000 ~name:"multiaddr: text and binary both round-trip"
+    (QCheck.make ~print:(fun s -> s) (QCheck.Gen.oneof_list multiaddr_strings))
+    (fun a ->
+      match Multiaddr.of_string a with
+      | Error _ -> false
+      | Ok m ->
+        String.equal (Multiaddr.to_string m) a
+        &&
+        (match Multiaddr.of_octets (Multiaddr.to_octets m) with
+         | Ok m2 -> Multiaddr.equal m2 m
+         | Error _ -> false))
+
+let multiaddr_nonmalleable =
+  QCheck.Test.make ~count:5000 ~name:"multiaddr: decode s = Ok m => encode m = s" arb_bytes
+    (fun s ->
+      match Multiaddr.of_octets s with
+      | Ok m -> String.equal (Multiaddr.to_octets m) s
+      | Error _ -> true)
+
+let multistream_roundtrip =
+  QCheck.Test.make ~count:3000 ~name:"multistream: framing round-trips"
+    (QCheck.make ~print:(fun s -> s)
+       QCheck.Gen.(
+         string_size ~gen:(oneof_list (List.init 95 (fun i -> Char.chr (i + 32)))) (int_range 0 120)))
+    (fun p -> Multistream.decode_message (Multistream.encode_message p) = Ok p)
+
+let multistream_nonmalleable =
+  QCheck.Test.make ~count:4000 ~name:"multistream: decode s = Ok p => encode p = s" arb_bytes
+    (fun s ->
+      match Multistream.decode_message s with
+      | Ok p -> String.equal (Multistream.encode_message p) s
+      | Error _ -> true)
+
+let multiformats_props =
+  [ varint_roundtrip; varint_nonmalleable;
+    multibase_roundtrip; multibase_nonmalleable;
+    multihash_roundtrip; multihash_nonmalleable;
+    cid_roundtrip; cid_base_agnostic; cid_nonmalleable;
+    multiaddr_roundtrip; multiaddr_nonmalleable;
+    multistream_roundtrip; multistream_nonmalleable ]
+
+let multiformats_robustness =
+  [ no_raise "Varint.of_octets" (fun s -> ignore (Varint.of_octets s));
+    no_raise "Base16.decode" (fun s -> ignore (Base16.decode s));
+    no_raise "Base32.decode" (fun s -> ignore (Base32.decode s));
+    no_raise "Base32.decode ~pad" (fun s -> ignore (Base32.decode ~pad:true s));
+    no_raise "Base64.decode" (fun s -> ignore (Base64.decode s));
+    no_raise "Base64.decode ~pad" (fun s -> ignore (Base64.decode ~pad:true s));
+    no_raise "Multibase.decode" (fun s -> ignore (Multibase.decode s));
+    no_raise "Multihash.of_octets" (fun s -> ignore (Multihash.of_octets s));
+    no_raise "Cid.of_octets" (fun s -> ignore (Cid.of_octets s));
+    no_raise "Cid.of_string" (fun s -> ignore (Cid.of_string s));
+    no_raise "Multiaddr.of_octets" (fun s -> ignore (Multiaddr.of_octets s));
+    no_raise "Multiaddr.of_string" (fun s -> ignore (Multiaddr.of_string s));
+    no_raise "Multikey.of_octets" (fun s -> ignore (Multikey.of_octets s));
+    no_raise "Multikey.of_did_key" (fun s -> ignore (Multikey.of_did_key s));
+    no_raise "Multistream.decode_message" (fun s -> ignore (Multistream.decode_message s)) ]
+
 let suite =
   [ ("properties",
      List.map QCheck_alcotest.to_alcotest
@@ -256,4 +412,6 @@ let suite =
           ss58_roundtrip;
           bech32_segwit_roundtrip; bech32_case_insensitive;
           abi_roundtrip ]
-        @ robustness)) ]
+        @ robustness
+        @ multiformats_props
+        @ multiformats_robustness)) ]

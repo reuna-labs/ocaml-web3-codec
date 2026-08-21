@@ -3,7 +3,10 @@ opam-version: "2.0"
 synopsis: "Serialization formats shared across blockchain protocols"
 description: """
 Byte-level codecs used by more than one chain: Ethereum ABI, RLP, SCALE,
-Borsh, base58, bech32, SS58 and the CRC variants those formats rely on."""
+Borsh, base58, bech32, SS58 and the CRC variants those formats rely on,
+plus the multiformats family -- unsigned varint, multibase (with base16,
+base32 and base64), multicodec, multihash, CID, multiaddr, multikey and
+multistream-select framing."""
 maintainer: ["Gil Bahat <bahat.gil@gmail.com>"]
 authors: ["Gil Bahat <bahat.gil@gmail.com>"]
 license: "ISC"

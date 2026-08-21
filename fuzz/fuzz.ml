@@ -71,7 +71,30 @@ let corpus =
       Abi.encode_exn [ Abi.Tuple [ Abi.Uint (Z.of_int 7); Abi.Address (String.make 20 '\x02') ] ];
       Abi.encode_exn [ Abi.String "Hello, world!" ] ]
   in
-  Array.of_list (rlp @ scale @ borsh @ b58 @ bech32 @ ss58 @ abi)
+  let multiformats =
+    let mh c p = Multihash.to_octets (Result.get_ok (Multihash.digest (Multicodec.of_code c) p)) in
+    let sha = Result.get_ok (Multihash.digest (Multicodec.of_code 0x12) "hello world") in
+    let cid = Cid.v1 ~codec:(Multicodec.of_code 0x55) sha in
+    let v0 = Result.get_ok (Cid.v0 sha) in
+    List.map Varint.write [ 0; 1; 127; 128; 255; 300; 16384; 0x7fffffff ]
+    @ [ mh 0x12 "hello world"; mh 0x00 ""; mh 0x16 "abc"; mh 0xb220 "abc" ]
+    @ [ Cid.to_octets cid; Cid.to_octets v0 ]
+    @ List.map (fun b -> Cid.to_string ~base:b cid) Multibase.all
+    @ [ Cid.to_string v0 ]
+    @ List.map (fun b -> Multibase.encode b "yes mani !") Multibase.all
+    @ List.filter_map
+        (fun a -> match Multiaddr.of_string a with Ok m -> Some (Multiaddr.to_octets m) | Error _ -> None)
+        [ "/ip4/127.0.0.1/udp/1234"; "/ip6/::1/tcp/8080"; "/dns4/example.com/tcp/443/tls/ws";
+          "/unix/tmp/p2p.sock"; "/ip4/1.2.3.4/udp/4001/quic-v1/webtransport";
+          "/ip4/127.0.0.1/tcp/1234/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC" ]
+    @ [ Multistream.encode_message Multistream.protocol_id;
+        Multistream.encode_message "/ipfs/id/1.0.0";
+        Multistream.encode_message "na" ]
+    @ [ Multikey.to_octets
+          (Result.get_ok
+             (Multikey.make ~codec:(Multicodec.of_code 0xed) ~key:(String.make 32 '\xab'))) ]
+  in
+  Array.of_list (rlp @ scale @ borsh @ b58 @ bech32 @ ss58 @ abi @ multiformats)
 
 (* ---- mutation ---- *)
 
@@ -152,8 +175,32 @@ let check input =
     (fun tys ->
       guard "Abi.decode" (fun () -> ignore (Abi.decode tys input));
       guard "Abi.decode_call" (fun () -> ignore (Abi.decode_call tys input)))
-    abi_tys
-
+    abi_tys;
+  (* ---- multiformats: the same two invariants ---- *)
+  let canonical name decode encode =
+    guard name (fun () ->
+        match decode input with
+        | Error _ -> ()
+        | Ok v ->
+          let re = encode v in
+          if not (String.equal re input) then
+            report (String.uppercase_ascii name ^ " NON-CANONICAL") input ("re-encoded as " ^ hexenc re))
+  in
+  canonical "Varint.of_octets" Varint.of_octets Varint.write;
+  canonical "Multihash.of_octets" Multihash.of_octets Multihash.to_octets;
+  canonical "Cid.of_octets" Cid.of_octets Cid.to_octets;
+  canonical "Multiaddr.of_octets" Multiaddr.of_octets Multiaddr.to_octets;
+  canonical "Multistream.decode" Multistream.decode_message Multistream.encode_message;
+  canonical "Multikey.of_octets" Multikey.of_octets Multikey.to_octets;
+  canonical "Multibase.decode" Multibase.decode (fun (b, v) -> Multibase.encode b v);
+  canonical "Base16.decode" Base16.decode Base16.encode;
+  canonical "Base32.decode" Base32.decode Base32.encode;
+  canonical "Base64.decode" Base64.decode Base64.encode;
+  guard "Base32.decode ~pad" (fun () -> ignore (Base32.decode ~pad:true input));
+  guard "Base64.decode ~pad" (fun () -> ignore (Base64.decode ~pad:true input));
+  guard "Cid.of_string" (fun () -> ignore (Cid.of_string input));
+  guard "Multiaddr.of_string" (fun () -> ignore (Multiaddr.of_string input));
+  guard "Multikey.of_did_key" (fun () -> ignore (Multikey.of_did_key input))
 
 (* A fuzzer that reports nothing is indistinguishable from a fuzzer that
    checks nothing, so prove the two detection paths actually fire. *)
@@ -166,6 +213,11 @@ let selftest () =
   if String.equal (Rlp.encode v) wrong then (print_endline "SELFTEST FAILED: comparison vacuous"; exit 2);
   report "NON-CANONICAL (planted)" wrong "planted mismatch";
   if !failures <> before + 2 then (print_endline "SELFTEST FAILED: mismatch not reported"; exit 2);
+  (* the varint minimality rule -- the multiformats analogue of the RLP
+     length-field overflow -- must reject the non-minimal spelling of 1 *)
+  (match Varint.of_octets "\x81\x00" with
+   | Ok _ -> print_endline "SELFTEST FAILED: non-minimal varint still accepted"; exit 2
+   | Error _ -> ());
   (* the pre-hardening RLP malleability case must now be rejected outright *)
   (match Rlp.decode ("\xff\x80\x00\x00\x00\x00\x00\x00\x64" ^ String.make 100 '\x01') with
    | Ok _ -> print_endline "SELFTEST FAILED: RLP overflow input still accepted"; exit 2

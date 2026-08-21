@@ -10,7 +10,7 @@
  (name web3-codec)
  (synopsis "Serialization formats shared across blockchain protocols")
  (description
-  "Byte-level codecs used by more than one chain: Ethereum ABI, RLP, SCALE,\nBorsh, base58, bech32, SS58 and the CRC variants those formats rely on.")
+  "Byte-level codecs used by more than one chain: Ethereum ABI, RLP, SCALE,\nBorsh, base58, bech32, SS58 and the CRC variants those formats rely on,\nplus the multiformats family -- unsigned varint, multibase (with base16,\nbase32 and base64), multicodec, multihash, CID, multiaddr, multikey and\nmultistream-select framing.")
  (depends
   (ocaml (>= 4.14))
   (zarith (>= 1.12))

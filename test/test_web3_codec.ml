@@ -257,4 +257,5 @@ let () =
       ("abi", [ Alcotest.test_case "encode/selector/decode" `Quick abi_ ]);
     ]
     @ Regressions.suite
+    @ Multiformats.suite
     @ Properties.suite)
