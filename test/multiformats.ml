@@ -157,6 +157,37 @@ let multicodec_table () =
     [ ("blake2b-8", 0xb201); ("blake2b-256", 0xb220); ("blake2b-512", 0xb240);
       ("blake2s-8", 0xb241); ("blake2s-256", 0xb260) ]
 
+(* Spot values from multiformats/multicodec table.csv. The full table was
+   diffed against upstream on 2026-08-21 (0 discrepancies across all
+   entries); these pin the ones most likely to drift or be mistyped --
+   codes outside the contiguous ranges, and names that differ between
+   registries. *)
+let multicodec_upstream_spot_check () =
+  List.iter
+    (fun (n, want) -> Alcotest.(check (option int)) n (Some want) (Multicodec.of_name n))
+    [ (* hashes the sibling crypto package can compute *)
+      ("ripemd-128", 0x1052); ("ripemd-160", 0x1053); ("ripemd-256", 0x1054);
+      ("ripemd-320", 0x1055); ("poseidon-bls12_381-a2-fc1", 0xb401);
+      ("blake3", 0x1e); ("keccak-512", 0x1d); ("sha2-512-224", 0x1014);
+      (* keys, including the ones did:key and Polkadot reach for *)
+      ("sr25519-pub", 0xef); ("sr25519-priv", 0x1303);
+      ("bip340-pub", 0x1340); ("bip340-priv", 0x1341);
+      ("bls12_381-g1g2-pub", 0xee); ("bls12_381-g1-priv", 0x1309);
+      ("ed448-pub", 0x1203); ("x448-pub", 0x1204); ("jwk_jcs-pub", 0xeb51);
+      ("p521-priv", 0x1308);
+      (* content types *)
+      ("bitcoin-witness-commitment", 0xb2); ("zcash-block", 0xc0);
+      ("zcash-tx", 0xc1); ("ipns-record", 0x300) ];
+  (* 0x309 is "memorytransport" in the codec registry; multiaddr spells the
+     same code "memory" in its own protocol table. Both are correct in
+     their domain, and neither table consults the other. *)
+  Alcotest.(check (option int)) "memorytransport" (Some 0x309) (Multicodec.of_name "memorytransport");
+  Alcotest.(check (option int)) "multicodec has no \"memory\"" None (Multicodec.of_name "memory");
+  Alcotest.(check bool) "multiaddr still spells it \"memory\"" true
+    (Multiaddr.proto_of_name "memory" <> None);
+  str "and /memory still round-trips" "/memory/4242"
+    (Multiaddr.to_string (ok (Multiaddr.of_string "/memory/4242")))
+
 (* An unknown code must stay usable, or a CID naming an unfamiliar codec
    would be unparseable rather than merely unnamed. *)
 let multicodec_unknown () =
@@ -352,7 +383,37 @@ let multikey_lengths () =
   (* RSA has no fixed length, so any length is structurally acceptable *)
   let rsa = Option.get (Multicodec.of_name "rsa-pub") in
   Alcotest.(check bool) "rsa length is unconstrained" true
-    (match Multikey.make ~codec:rsa ~key:(String.make 270 '\x01') with Ok _ -> true | Error _ -> false)
+    (match Multikey.make ~codec:rsa ~key:(String.make 270 '\x01') with Ok _ -> true | Error _ -> false);
+  (* likewise for the types whose length this module deliberately does not
+     pin -- unconstrained means unconstrained, not invalid *)
+  List.iter
+    (fun n ->
+      let c = Option.get (Multicodec.of_name n) in
+      Alcotest.(check (option int)) (n ^ " is unconstrained") None
+        (Multikey.expected_length (Multicodec.to_code c)))
+    [ "rsa-pub"; "rsa-priv"; "ed448-pub"; "jwk_jcs-pub" ]
+
+(* Key types reachable now that the table covers them. Lengths are either
+   derivable from the curve size or checked against a reference encoding,
+   since a wrong entry here rejects valid keys. *)
+let multikey_more_types () =
+  List.iter
+    (fun (name, len) ->
+      let c = Option.get (Multicodec.of_name name) in
+      Alcotest.(check (option int)) (name ^ " length") (Some len)
+        (Multikey.expected_length (Multicodec.to_code c));
+      let k = ok (Multikey.make ~codec:c ~key:(String.make len '\x03')) in
+      Alcotest.(check bool) (name ^ " round-trips") true
+        (match Multikey.of_string (Multikey.to_string k) with
+         | Ok k2 -> Multikey.key_bytes k2 = Multikey.key_bytes k && Multikey.codec k2 = c
+         | Error _ -> false);
+      rejects (name ^ " rejects a short key")
+        (Multikey.make ~codec:c ~key:(String.make (len - 1) '\x03')))
+    [ ("sr25519-pub", 32); ("sr25519-priv", 32);
+      ("bip340-pub", 32); ("bip340-priv", 32);
+      ("bls12_381-g1g2-pub", 144); ("bls12_381-g1-priv", 32); ("bls12_381-g2-priv", 32);
+      ("x448-pub", 56);
+      ("p256-priv", 32); ("p384-priv", 48); ("p521-priv", 66) ]
 
 (* ---------------- multistream ---------------- *)
 
@@ -412,6 +473,7 @@ let suite =
        Alcotest.test_case "rejections" `Quick multibase_rejects ]);
     ("multicodec",
      [ Alcotest.test_case "table consistency" `Quick multicodec_table;
+       Alcotest.test_case "upstream spot check" `Quick multicodec_upstream_spot_check;
        Alcotest.test_case "unknown passthrough" `Quick multicodec_unknown ]);
     ("multihash",
      [ Alcotest.test_case "published digests" `Quick multihash_digests;
@@ -427,7 +489,8 @@ let suite =
        Alcotest.test_case "rejections" `Quick multiaddr_rejects ]);
     ("multikey",
      [ Alcotest.test_case "did:key prefixes" `Quick multikey_did_key;
-       Alcotest.test_case "length checks" `Quick multikey_lengths ]);
+       Alcotest.test_case "length checks" `Quick multikey_lengths;
+       Alcotest.test_case "additional key types" `Quick multikey_more_types ]);
     ("multistream",
      [ Alcotest.test_case "framing" `Quick multistream_framing;
        Alcotest.test_case "negotiation" `Quick multistream_negotiation ]) ]

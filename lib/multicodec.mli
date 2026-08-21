@@ -13,7 +13,13 @@ type t = int
 
 (** Every entry in the bundled table: code, name, tag. A curated subset of
     the upstream registry covering the hashes, IPLD codecs, multiaddr
-    protocols and key types this library reaches. *)
+    protocols and key types this library reaches, plus those the sibling
+    [mirage-crypto-blockchain] package can compute.
+
+    Codes and names were checked against multiformats/multicodec
+    [table.csv] on 2026-08-21. Where two registries name one code
+    differently the domain's own name wins: 0x309 is ["memorytransport"]
+    here and ["memory"] in {!Multiaddr}'s protocol table. *)
 val table : (int * string * tag) list
 
 val of_code : int -> t

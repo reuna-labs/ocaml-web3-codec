@@ -16,21 +16,35 @@ type t = { codec : Multicodec.t; key : string }
 let codec t = t.codec
 let key_bytes t = t.key
 
-(* Byte lengths for the key types with a fixed one. RSA is DER and varies,
-   so it is absent rather than guessed at. *)
+(* Byte lengths for the key types with a fixed one. A wrong entry here
+   rejects valid keys, so each is either derivable from the curve size or
+   was checked against mirage-crypto-blockchain's encodings. Types whose
+   length is neither -- RSA's DER, JWK's JSON, Ed448's 456+1 convention --
+   are absent rather than guessed at, and are simply unconstrained. *)
 let expected_length code =
   match code with
   | 0xe7 -> Some 33 (* secp256k1-pub, compressed *)
-  | 0xea -> Some 48 (* bls12_381-g1-pub *)
-  | 0xeb -> Some 96 (* bls12_381-g2-pub *)
+  | 0xea -> Some 48 (* bls12_381-g1-pub, compressed *)
+  | 0xeb -> Some 96 (* bls12_381-g2-pub, compressed *)
   | 0xec -> Some 32 (* x25519-pub *)
   | 0xed -> Some 32 (* ed25519-pub *)
+  | 0xee -> Some 144 (* bls12_381-g1g2-pub, a compressed G1 then G2 *)
+  | 0xef -> Some 32 (* sr25519-pub, a Ristretto point *)
   | 0x1200 -> Some 33 (* p256-pub, compressed *)
   | 0x1201 -> Some 49 (* p384-pub, compressed *)
   | 0x1202 -> Some 67 (* p521-pub, compressed *)
+  | 0x1204 -> Some 56 (* x448-pub *)
   | 0x1300 -> Some 32 (* ed25519-priv *)
   | 0x1301 -> Some 32 (* secp256k1-priv *)
   | 0x1302 -> Some 32 (* x25519-priv *)
+  | 0x1303 -> Some 32 (* sr25519-priv, a MiniSecretKey seed *)
+  | 0x1306 -> Some 32 (* p256-priv *)
+  | 0x1307 -> Some 48 (* p384-priv *)
+  | 0x1308 -> Some 66 (* p521-priv, 521 bits rounded up *)
+  | 0x1309 -> Some 32 (* bls12_381-g1-priv, a scalar mod r *)
+  | 0x130a -> Some 32 (* bls12_381-g2-priv *)
+  | 0x1340 -> Some 32 (* bip340-pub, x-only *)
+  | 0x1341 -> Some 32 (* bip340-priv *)
   | _ -> None
 
 let check code key =

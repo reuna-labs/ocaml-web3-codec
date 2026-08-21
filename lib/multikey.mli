@@ -6,19 +6,29 @@
     ["zQ3s…"]. Those prefixes are not special-cased; they fall out of the
     codec varint.
 
-    {b This is a structural codec, not key validation.} The library has no
+    {b This is a structural codec, not key validation.} This library has no
     elliptic-curve code. It checks the byte length that a key type declares
-    and nothing else — it cannot tell you a point lies on its curve or that
-    a scalar is in range. A successful decode means the bytes were
-    well-framed, nothing more. *)
+    and nothing else — it cannot tell you a point lies on its curve, is in
+    the right subgroup, or that a scalar is in range. A successful decode
+    means the bytes were well-framed, nothing more.
+
+    Where that matters, pair this with a crypto library and check the key
+    yourself: [mirage-crypto-blockchain] exposes on-curve and in-subgroup
+    predicates for secp256k1 and BLS12-381, and point decoders for sr25519,
+    BIP340 and the NIST curves. Keeping the two apart is deliberate — a
+    codec that only frames bytes has no business pulling in curve
+    arithmetic. *)
 
 type t
 
 val codec : t -> Multicodec.t
 val key_bytes : t -> string
 
-(** Byte length for key types that have a fixed one. [None] for RSA, whose
-    DER encoding varies, and for unknown codecs. *)
+(** Byte length for key types that have a fixed one, and [None] where there
+    is no single answer — RSA's DER, JWK's JSON, Ed448 — or for an unknown
+    codec. A [None] here means unconstrained, not invalid: a wrong entry
+    would reject valid keys, so lengths are only listed when derivable from
+    the curve size or checked against a reference encoding. *)
 val expected_length : int -> int option
 
 (** [Error] if the key length disagrees with {!expected_length}. *)

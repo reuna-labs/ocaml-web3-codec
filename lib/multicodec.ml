@@ -9,10 +9,21 @@
 
    The table is a curated subset of the upstream registry covering the
    hashes, IPLD codecs, multiaddr protocols and key types this library
-   actually reaches. It is transcribed, so [test/regressions.ml] checks it
-   for internal consistency -- no duplicate codes, no duplicate names, and
-   name/code round-tripping -- and the multiaddr protocol codes are pinned
-   by round-trip tests against known addresses. *)
+   actually reaches, plus the key and hash types the sibling
+   mirage-crypto-blockchain package can compute.
+
+   Provenance: every entry was checked against multiformats/multicodec
+   table.csv (master, 651 entries) on 2026-08-21 -- codes and names both.
+   [test/multiformats.ml] additionally checks the table for internal
+   consistency, since a duplicate would be silently shadowed by the lookup
+   tables below. To refresh against upstream:
+
+     curl -sSL https://raw.githubusercontent.com/multiformats/multicodec/\
+master/table.csv
+
+   Note that a few names differ between registries for the same code:
+   0x309 is "memorytransport" here, which multiaddr spells "memory" in its
+   own protocol table. Each table uses its own domain's name. *)
 
 type tag =
   | Multihash
@@ -65,7 +76,7 @@ let table : (int * string * tag) list =
     (0x01de, "wss", Multiaddr);
     (0x01df, "p2p-websocket-star", Multiaddr);
     (0x01e0, "http", Multiaddr);
-    (0x0309, "memory", Multiaddr);
+    (0x0309, "memorytransport", Multiaddr);
     (* --- hash functions --- *)
     (0x11, "sha1", Multihash);
     (0x12, "sha2-256", Multihash);
@@ -87,6 +98,15 @@ let table : (int * string * tag) list =
     (0x1013, "sha2-224", Multihash);
     (0x1014, "sha2-512-224", Multihash);
     (0x1015, "sha2-512-256", Multihash);
+    (* RIPEMD and Poseidon: not computable from digestif, but the sibling
+       mirage-crypto-blockchain package implements ripemd-160 (Bitcoin's
+       hash160) and Poseidon, so name them here regardless -- naming a code
+       costs nothing and parsing never depended on computing. *)
+    (0x1052, "ripemd-128", Multihash);
+    (0x1053, "ripemd-160", Multihash);
+    (0x1054, "ripemd-256", Multihash);
+    (0x1055, "ripemd-320", Multihash);
+    (0xb401, "poseidon-bls12_381-a2-fc1", Multihash);
     (* --- IPLD / content types --- *)
     (0x50, "protobuf", Serialization);
     (0x51, "cbor", Serialization);
@@ -110,22 +130,39 @@ let table : (int * string * tag) list =
     (0x98, "eth-storage-trie", Ipld);
     (0xb0, "bitcoin-block", Ipld);
     (0xb1, "bitcoin-tx", Ipld);
+    (0xb2, "bitcoin-witness-commitment", Ipld);
+    (0xc0, "zcash-block", Ipld);
+    (0xc1, "zcash-tx", Ipld);
     (0x0129, "dag-json", Ipld);
     (0x0200, "json", Serialization);
+    (0x0300, "ipns-record", Ipld);
     (* --- keys --- *)
     (0xe7, "secp256k1-pub", Key);
     (0xea, "bls12_381-g1-pub", Key);
     (0xeb, "bls12_381-g2-pub", Key);
     (0xec, "x25519-pub", Key);
     (0xed, "ed25519-pub", Key);
+    (0xee, "bls12_381-g1g2-pub", Key);
+    (0xef, "sr25519-pub", Key);
     (0x1200, "p256-pub", Key);
     (0x1201, "p384-pub", Key);
     (0x1202, "p521-pub", Key);
+    (0x1203, "ed448-pub", Key);
+    (0x1204, "x448-pub", Key);
     (0x1205, "rsa-pub", Key);
     (0x1300, "ed25519-priv", Key);
     (0x1301, "secp256k1-priv", Key);
     (0x1302, "x25519-priv", Key);
+    (0x1303, "sr25519-priv", Key);
     (0x1305, "rsa-priv", Key);
+    (0x1306, "p256-priv", Key);
+    (0x1307, "p384-priv", Key);
+    (0x1308, "p521-priv", Key);
+    (0x1309, "bls12_381-g1-priv", Key);
+    (0x130a, "bls12_381-g2-priv", Key);
+    (0x1340, "bip340-pub", Key);
+    (0x1341, "bip340-priv", Key);
+    (0xeb51, "jwk_jcs-pub", Key);
   ]
   (* BLAKE2b-8..512 and BLAKE2s-8..256 are contiguous ranges, so they are
      generated rather than listed: blake2b-N is 0xb200 + N/8. *)
