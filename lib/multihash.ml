@@ -58,6 +58,14 @@ module B2s_128 = Digestif.Make_BLAKE2S (struct let digest_size = 16 end)
 module B2s_160 = Digestif.Make_BLAKE2S (struct let digest_size = 20 end)
 module B2s_224 = Digestif.Make_BLAKE2S (struct let digest_size = 28 end)
 
+(* SHAKE is an XOF: FIPS 202 gives it no default output length, so digestif
+   exposes no plain [SHAKE128 : S] and the length has to be chosen here. 32 and
+   64 bytes are the collision-resistance-matching sizes for the 128- and 256-bit
+   security levels, and they are what go-multihash emits for these two codes, so
+   a digest produced here round-trips with the rest of the ecosystem. *)
+module Shake_128 = Digestif.Make_SHAKE128 (struct let digest_size = 32 end)
+module Shake_256 = Digestif.Make_SHAKE256 (struct let digest_size = 64 end)
+
 (* Codes this library can actually compute. Everything else parses fine
    but cannot be produced here. *)
 let compute code s =
@@ -70,11 +78,18 @@ let compute code s =
   | 0x15 -> Some Digestif.SHA3_384.(to_raw_string (digest_string s))
   | 0x16 -> Some Digestif.SHA3_256.(to_raw_string (digest_string s))
   | 0x17 -> Some Digestif.SHA3_224.(to_raw_string (digest_string s))
+  | 0x18 -> Some Shake_128.(to_raw_string (digest_string s))
+  | 0x19 -> Some Shake_256.(to_raw_string (digest_string s))
+  | 0x1a -> Some Digestif.KECCAK_224.(to_raw_string (digest_string s))
   | 0x1b -> Some Digestif.KECCAK_256.(to_raw_string (digest_string s))
+  | 0x1c -> Some Digestif.KECCAK_384.(to_raw_string (digest_string s))
+  | 0x1d -> Some Digestif.KECCAK_512.(to_raw_string (digest_string s))
   | 0x20 -> Some Digestif.SHA384.(to_raw_string (digest_string s))
   | 0x56 -> Some (sha256 (sha256 s))
   | 0xd5 -> Some Digestif.MD5.(to_raw_string (digest_string s))
   | 0x1013 -> Some Digestif.SHA224.(to_raw_string (digest_string s))
+  | 0x1014 -> Some Digestif.SHA512_224.(to_raw_string (digest_string s))
+  | 0x1015 -> Some Digestif.SHA512_256.(to_raw_string (digest_string s))
   | 0xb214 -> Some B2b_160.(to_raw_string (digest_string s))
   | 0xb220 -> Some B2b_256.(to_raw_string (digest_string s))
   | 0xb230 -> Some B2b_384.(to_raw_string (digest_string s))

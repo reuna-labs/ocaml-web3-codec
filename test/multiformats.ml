@@ -212,7 +212,20 @@ let multihash_digests () =
       ("sha3-256", "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532");
       ("keccak-256", "4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45");
       ("blake2b-256", "bddd813c634239723171ef3fee98579b94964e3bb1cb3e427262c8c068d52319");
-      ("blake2s-256", "508c5e8c327c14e2e1a72ba34eeb452f37458b209ed63a294d999b4c86675982") ];
+      ("blake2s-256", "508c5e8c327c14e2e1a72ba34eeb452f37458b209ed63a294d999b4c86675982");
+      (* digestif 1.4.0 additions. Keccak here is the pre-FIPS-202 padding, not
+         SHA-3 -- compare keccak-256 and sha3-256 above, same rate, different
+         digests. shake-* are XOFs squeezed to the lengths go-multihash uses. *)
+      ("keccak-224", "c30411768506ebe1c2871b1ee2e87d38df342317300a9b97a95ec6a8");
+      ("keccak-384",
+       "f7df1165f033337be098e7d288ad6a2f74409d7a60b49c36642218de161b1f99f8c681e4afaf31a34db29fb763e3c28e");
+      ("keccak-512",
+       "18587dc2ea106b9a1563e32b3312421ca164c7f1f07bc922a9c83d77cea3a1e5d0c69910739025372dc14ac9642629379540c17e2a65b19d77aa511a9d00bb96");
+      ("shake-128", "5881092dd818bf5cf8a3ddb793fbcba74097d5c526a6d35f97b83351940f2cc8");
+      ("shake-256",
+       "483366601360a8771c6863080cc4114d8db44530f8f1e1ee4f94ea37e78b5739d5a15bef186a5386c75744c0527e1faa9f8726e462a12a4feb06bd8801e751e4");
+      ("sha2-512-224", "4634270f707b6a54daae7530460842e20e37ed265ceee9a43e8924aa");
+      ("sha2-512-256", "53048e2681941ef99b2e29b76b4c7dabe4c2d0c634fc6d46e0e2f13107e7af23") ];
   str "identity is the input" "616263"
     (hexenc (Multihash.digest_bytes (ok (Multihash.digest (Multicodec.of_code 0x00) "abc"))));
   str "sha2-256 of \"hello world\", framed"

@@ -9,10 +9,16 @@
     unsupported algorithms as [Error] rather than substituting a different
     hash.
 
-    Computable here: identity, sha1, sha2-224/256/384/512, sha3-224/256/384/512,
-    keccak-256, dbl-sha2-256, md5, blake2b-160/256/384/512 and
-    blake2s-128/160/224/256. Notably {b not} computable: shake-128/256,
-    keccak-224/384/512, blake3, and sha2-512/224. Use {!supported} to ask. *)
+    Computable here: identity, sha1, sha2-224/256/384/512, sha2-512-224,
+    sha2-512-256, sha3-224/256/384/512, shake-128, shake-256,
+    keccak-224/256/384/512, dbl-sha2-256, md5, blake2b-160/256/384/512 and
+    blake2s-128/160/224/256. Notably {b not} computable: blake3, ripemd-*, and
+    poseidon. Use {!supported} to ask.
+
+    shake-128 and shake-256 are emitted at 32 and 64 bytes. SHAKE is an
+    extendable-output function with no default length in FIPS 202, so the size
+    is a choice rather than a property of the algorithm; these are the ones
+    go-multihash uses, so digests round-trip with the wider ecosystem. *)
 
 type t
 
