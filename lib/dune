@@ -1,4 +1,10 @@
 (library
  (name web3_codec)
  (public_name web3-codec)
- (libraries evm-abi zarith digestif))
+ (libraries
+  web3-codec-basen
+  web3-codec-base58
+  web3-codec-borsh
+  evm-abi
+  zarith
+  digestif))

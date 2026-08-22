@@ -1,0 +1,4 @@
+(library
+ (name web3_codec_base58)
+ (public_name web3-codec-base58)
+ (libraries web3-codec-basen digestif))

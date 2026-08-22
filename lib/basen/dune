@@ -1,0 +1,4 @@
+(library
+ (name web3_codec_basen)
+ (public_name web3-codec-basen)
+ (libraries zarith))

@@ -1,4 +1,20 @@
 (test
  (name test_web3_codec)
+ (package web3-codec)
  (modules test_web3_codec regressions properties multiformats)
  (libraries web3_codec alcotest qcheck-core qcheck-alcotest))
+
+(test
+ (name test_basen_lean)
+ (package web3-codec-basen)
+ (libraries web3-codec-basen alcotest))
+
+(test
+ (name test_base58_lean)
+ (package web3-codec-base58)
+ (libraries web3-codec-base58 alcotest))
+
+(test
+ (name test_borsh_lean)
+ (package web3-codec-borsh)
+ (libraries web3-codec-borsh alcotest zarith))
