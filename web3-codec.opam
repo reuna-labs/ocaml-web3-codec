@@ -38,3 +38,13 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/reuna-labs/ocaml-web3-codec.git"
+
+pin-depends: [
+  # evm-abi lives in a separate private repository, so opam cannot find it
+  # without being told where. Regenerating this file from dune-project drops
+  # this block -- dune cannot express pin-depends. Re-add it if you do.
+  [
+    "evm-abi.0.2.0~alpha1"
+    "git+https://github.com/reuna-labs/ocaml-evm.git#main"
+  ]
+]
