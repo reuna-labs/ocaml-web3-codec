@@ -1,0 +1,11 @@
+; Bech32 and Bech32m, sliced out of the web3-codec umbrella so that a consumer
+; that needs an address encoding does not also take on evm-abi, zarith and the
+; digestif 1.4 fork. ocaml-cardano carries a private copy for exactly that
+; reason and can now drop it; ocaml-cosmos uses this one.
+;
+; No dependencies at all: the checksum is integer arithmetic and the charset is
+; a string, so this links into a MirageOS/Solo5 unikernel and needs no bignum.
+
+(library
+ (name web3_codec_bech32)
+ (public_name web3-codec-bech32))

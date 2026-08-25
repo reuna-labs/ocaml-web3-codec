@@ -4,6 +4,7 @@
  (libraries
   web3-codec-basen
   web3-codec-base58
+  web3-codec-bech32
   web3-codec-borsh
   evm-abi
   zarith

@@ -29,6 +29,15 @@
   (alcotest :with-test)))
 
 (package
+ (name web3-codec-bech32)
+ (synopsis "Bech32 and Bech32m for web3 address encodings")
+ (description
+  "BIP-173 Bech32 and BIP-350 Bech32m, without the full web3-codec dependency\nclosure. Depends on nothing: the checksum is integer arithmetic and the\ncharset is a string, so this links into a MirageOS/Solo5 unikernel and needs\nno bignum.\n\nThe 90-character cap is BIP-173's and remains the default, but it is a\nparameter rather than a constant -- the Cosmos SDK spells addresses in Bech32\nand does not enforce it.")
+ (depends
+  (ocaml (>= 4.14))
+  (alcotest :with-test)))
+
+(package
  (name web3-codec-borsh)
  (synopsis "Canonical Borsh encoding and decoding")
  (description
@@ -71,6 +80,7 @@
   (zarith (>= 1.12))
   (web3-codec-basen (= :version))
   (web3-codec-base58 (= :version))
+  (web3-codec-bech32 (= :version))
   (web3-codec-borsh (= :version))
   ; 1.4.0 is the Reuna fork (private: github.com/reuna-labs/digestif). It is
   ; what supplies SHAKE-128/256, KECCAK-224/384/512 and SHA-512/224+256, which
