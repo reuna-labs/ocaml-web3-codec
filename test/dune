@@ -18,3 +18,8 @@
  (name test_borsh_lean)
  (package web3-codec-borsh)
  (libraries web3-codec-borsh alcotest zarith))
+
+(test
+ (name test_cbor_lean)
+ (package web3-codec-cbor)
+ (libraries web3-codec-cbor alcotest qcheck-core qcheck-alcotest))

@@ -1,0 +1,20 @@
+; The ocaml-protoc-plugin runtime, vendored with its ppx pre-expanded. See
+; README.md for why it is vendored rather than depended on -- in short, the
+; package's build dependencies make opam-monorepo vendoring impossible, so a
+; unikernel could not be built at all.
+;
+; The library name is not a choice. ocaml-protoc-plugin emits
+; `module Runtime' = Ocaml_protoc_plugin` into every generated file, so the
+; runtime has to be reachable under exactly that name. The public name is
+; web3-codec-protobuf; only the internal library name is fixed.
+
+(library
+ (name ocaml_protoc_plugin)
+ (public_name web3-codec-protobuf)
+ ; Vendored code is not ours to lint. The dev profile promotes warnings to
+ ; errors and this trips several by design.
+ (flags
+  (:standard -w -a))
+ ; base64 and ptime are the whole runtime. Note the absence of unix: this
+ ; package is linked into Solo5 unikernels, so that must stay true.
+ (libraries base64 ptime))

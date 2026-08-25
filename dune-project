@@ -41,6 +41,27 @@
   (qcheck-alcotest :with-test)))
 
 (package
+ (name web3-codec-cbor)
+ (synopsis "Deterministic CBOR for hash-bearing protocols")
+ (description
+  "RFC 8949 CBOR with a permissive decoder and a strict encoder, offering both\nthe RFC 8949 section 4.2.1 and the RFC 7049 section 3.9 map orderings, and\nreporting the source byte span of every decoded value so that a structure\nidentified by the hash of its encoding can be re-hashed from the bytes it\narrived in rather than from a re-encode.\n\nNo bignum dependency: arbitrary-precision integers are carried as magnitudes\nand never operated on, so this links into a unikernel without GMP.")
+ (depends
+  (ocaml (>= 4.14))
+  (alcotest :with-test)
+  (qcheck-core :with-test)
+  (qcheck-alcotest :with-test)))
+
+(package
+ (name web3-codec-protobuf)
+ (synopsis "Protobuf runtime for the OCaml chain libraries")
+ (description
+  "The ocaml-protoc-plugin 6.2.0 runtime, vendored with its ppx pre-expanded,\nplus tools/gen-protobuf.sh -- the shared protoc invocation that generates\nbindings for a consuming repository.\n\nThe package proper cannot be depended on: building its code generator needs\nppx_expect, ppx_inline_test, omd and conf-protoc, and that cone makes\n`opam monorepo lock` fail outright, so a unikernel could not vendor its\ndependencies at all. The runtime alone is base64 + ptime and neither depends\non unix, so this links into a MirageOS/Solo5 guest.\n\nGenerated bindings are NOT here: they belong to whichever repository owns the\nschema, and are committed there so that building it needs no protoc. Only the\nruntime and the generator invocation are shared. See lib/protobuf/README.md.")
+ (depends
+  (ocaml (>= 4.14))
+  (base64 (>= 3.1.0))
+  ptime))
+
+(package
  (name web3-codec)
  (synopsis "Serialization formats shared across blockchain protocols")
  (description

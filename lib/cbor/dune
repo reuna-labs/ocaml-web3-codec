@@ -1,0 +1,3 @@
+(library
+ (name web3_codec_cbor)
+ (public_name web3-codec-cbor))
