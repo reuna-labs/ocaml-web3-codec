@@ -1,0 +1,32 @@
+name: test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: [self-hosted, Linux, X64, reuna-builder-x86]
+    strategy:
+      fail-fast: false
+      matrix:
+        ocaml-compiler: [4.14.2, 5.2.1]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          dune-cache: true
+      - name: Authenticate private staging dependencies
+        env:
+          REUNA_CI_TOKEN: ${{ secrets.REUNA_CI_TOKEN }}
+        run: |
+          test -n "$REUNA_CI_TOKEN"
+          git config --global url."https://x-access-token:${REUNA_CI_TOKEN}@github.com/reuna-labs/".insteadOf "https://github.com/reuna-labs/"
+      - run: opam pin add digestif.1.4.0 "git+https://github.com/reuna-labs/digestif.git#6b1530c" --no-action --yes
+      - run: opam pin add evm-abi.0.2.0~alpha1 "git+https://github.com/reuna-labs/ocaml-evm.git#62a3cfb" --no-action --yes
+      - run: opam pin add evm-types.0.2.0~alpha1 "git+https://github.com/reuna-labs/ocaml-evm.git#62a3cfb" --no-action --yes
+      - run: opam install . --deps-only --with-test --yes
+      - run: opam exec -- dune build @install @runtest
+      - run: opam lint *.opam
