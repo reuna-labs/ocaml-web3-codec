@@ -18,15 +18,37 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
           dune-cache: true
+      - name: Build the GMP prerequisite without host privileges
+        env:
+          GMP_VERSION: "6.3.0"
+          GMP_SHA256: a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898
+        run: |
+          archive="$RUNNER_TEMP/gmp-$GMP_VERSION.tar.xz"
+          source_dir="$(mktemp --directory "$RUNNER_TEMP/gmp-build.XXXXXX")"
+          gmp_prefix="$RUNNER_TEMP/ocaml-codec-gmp-${{ matrix.ocaml-compiler }}"
+          curl --fail --location --retry 5 --retry-all-errors \
+            --connect-timeout 20 --output "$archive" \
+            "https://ftp.gnu.org/gnu/gmp/gmp-$GMP_VERSION.tar.xz"
+          echo "$GMP_SHA256  $archive" | sha256sum --check --strict
+          tar --extract --xz --file "$archive" --directory "$source_dir" \
+            --strip-components 1
+          cd "$source_dir"
+          ./configure --prefix="$gmp_prefix" --with-pic
+          make -j"$(nproc)"
+          make install
+          echo "CPATH=$gmp_prefix/include" >> "$GITHUB_ENV"
+          echo "LIBRARY_PATH=$gmp_prefix/lib" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$gmp_prefix/lib" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=$gmp_prefix/lib/pkgconfig" >> "$GITHUB_ENV"
       - name: Authenticate private staging dependencies
         env:
           REUNA_CI_TOKEN: ${{ secrets.REUNA_CI_TOKEN }}
         run: |
           test -n "$REUNA_CI_TOKEN"
           git config --global url."https://x-access-token:${REUNA_CI_TOKEN}@github.com/reuna-labs/".insteadOf "https://github.com/reuna-labs/"
-      - run: opam pin add digestif.1.4.0 "git+https://github.com/reuna-labs/digestif.git#6b1530c" --no-action --yes
-      - run: opam pin add evm-abi.0.2.0~alpha1 "git+https://github.com/reuna-labs/ocaml-evm.git#62a3cfb" --no-action --yes
-      - run: opam pin add evm-types.0.2.0~alpha1 "git+https://github.com/reuna-labs/ocaml-evm.git#62a3cfb" --no-action --yes
-      - run: opam install . --deps-only --with-test --yes
+      - run: opam pin add digestif.1.4.0 "git+https://github.com/reuna-labs/digestif.git#v1.4.0-alpha1" --no-action --yes
+      - run: opam pin add evm-abi.0.2.0~alpha1 "git+https://github.com/reuna-labs/ocaml-evm.git#v0.2.0-alpha1" --no-action --yes
+      - run: opam pin add evm-types.0.2.0~alpha1 "git+https://github.com/reuna-labs/ocaml-evm.git#v0.2.0-alpha1" --no-action --yes
+      - run: opam install . --assume-depexts --deps-only --with-test --yes
       - run: opam exec -- dune build @install @runtest
       - run: opam lint *.opam
