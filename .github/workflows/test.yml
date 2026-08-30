@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    runs-on: [self-hosted, Linux, X64, reuna-builder-x86]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -40,12 +40,6 @@ jobs:
           echo "LIBRARY_PATH=$gmp_prefix/lib" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=$gmp_prefix/lib" >> "$GITHUB_ENV"
           echo "PKG_CONFIG_PATH=$gmp_prefix/lib/pkgconfig" >> "$GITHUB_ENV"
-      - name: Authenticate private staging dependencies
-        env:
-          REUNA_CI_TOKEN: ${{ secrets.REUNA_CI_TOKEN }}
-        run: |
-          test -n "$REUNA_CI_TOKEN"
-          git config --global url."https://x-access-token:${REUNA_CI_TOKEN}@github.com/reuna-labs/".insteadOf "https://github.com/reuna-labs/"
       - run: opam pin add digestif.1.4.0 "git+https://github.com/reuna-labs/digestif.git#v1.4.0-alpha1" --no-action --yes
       - run: opam pin add evm-abi.0.2.0~alpha1 "git+https://github.com/reuna-labs/ocaml-evm.git#v0.2.0-alpha1" --no-action --yes
       - run: opam pin add evm-types.0.2.0~alpha1 "git+https://github.com/reuna-labs/ocaml-evm.git#v0.2.0-alpha1" --no-action --yes
