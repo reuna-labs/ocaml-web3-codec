@@ -86,7 +86,9 @@ fi
 # messages reference later ones -- Tron's does -- raises "Undefined recursive
 # module" the moment the generated module is initialised. See
 # tools/lazify-merge.py for the full account and the upstream reference.
-"$(dirname "$0")/lazify-merge.py" $(find "$out_dir" -name '*.ml')
+ml_files=()
+while IFS= read -r f; do ml_files+=("$f"); done < <(find "$out_dir" -name '*.ml')
+"$(dirname "$0")/lazify-merge.py" ${ml_files[@]+"${ml_files[@]}"}
 
 # Why these flags
 #
